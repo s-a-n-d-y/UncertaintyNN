@@ -68,3 +68,9 @@ or all at once with `python evaluation/evaluate_all.py`
 ## Problems
 - When running on the command-line, you might have to set $PYTHONPATH to the root dir: `export PYTHONPATH=.`  
 
+## WASP course addition
+- Downloaded [camvid dataset](http://mi.eng.cam.ac.uk/research/projects/VideoRec/CamSeq01/CamSeq01.zip)
+- Added loading of camvid dataset: `Dataloader.py`
+- Added sample unet model training with the data loaders: `unet_training.py`
+- To run, set the correct log file path, `Line 165`
+
