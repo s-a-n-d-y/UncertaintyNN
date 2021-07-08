@@ -1,6 +1,28 @@
 import tensorflow as tf
 
 
+class CombinedModel(tf.keras.layers.Layer):
+    def __init__(self, dropout_rate):
+        super().__init__()
+        
+        self.keep_prob = 1 - dropout_rate
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Dense(50, activation=tf.keras.activations.relu),
+            tf.keras.layers.Dropout(self.keep_prob),
+            tf.keras.layers.Dense(50, activation=tf.keras.activations.relu),
+            tf.keras.layers.Dropout(self.keep_prob),
+            tf.keras.layers.Dense(2)
+        ])
+        
+    def call(self, x):
+        output = self.model(x)
+        
+        predictions = tf.expand_dims(output[:,0], -1)
+        log_variance = tf.expand_dims(output[:,1], -1)
+        
+        return predictions, log_variance
+
+
 def combined_model(x, dropout_rate):
     """
     Model that combines aleatoric and epistemic uncertainty.
@@ -12,19 +34,7 @@ def combined_model(x, dropout_rate):
     :return: prediction, log(sigma^2)
     """
 
-    # with tf.device("/gpu:0"):
-    keep_prob = 1 - dropout_rate
+    model = CombinedModel(dropout_rate)
+    return model(x)
+    
 
-    fc1 = tf.layers.dense(inputs=x, units=50, activation=tf.nn.relu)
-    fc1 = tf.nn.dropout(fc1, keep_prob)
-
-    fc2 = tf.layers.dense(inputs=fc1, units=50, activation=tf.nn.relu)
-    fc2 = tf.nn.dropout(fc2, keep_prob)
-
-    # Output layers has predictive mean and variance sigma^2
-    output_layer = tf.layers.dense(fc2, units=2)
-
-    predictions = tf.expand_dims(output_layer[:, 0], -1)
-    log_variance = tf.expand_dims(output_layer[:, 1], -1)
-
-    return predictions, log_variance
