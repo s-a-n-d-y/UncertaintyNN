@@ -2,3 +2,10 @@
 .vscode
 __pycache__
 logs
+
+# Ignore virtualenv
+venv/*
+
+# Ignore python cache files
+*.pyc
+*/__pychace__/*
