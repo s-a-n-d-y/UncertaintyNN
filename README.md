@@ -70,7 +70,7 @@ or all at once with `python evaluation/evaluate_all.py`
 
 ## WASP course addition
 - Downloaded [camvid dataset](http://mi.eng.cam.ac.uk/research/projects/VideoRec/CamSeq01/CamSeq01.zip)
-- Added loading of camvid dataset: `Dataloader.py`
+- Added loading of camvid dataset: `Dataloader.py` present [here](data/Dataloader.py)
 - Added sample unet model training with the data loaders: `unet_training.py`
-- To run, set the correct log file path, `Line 165`
+- To run, set the correct log file path, `Line 165` in `unet_training.py` [file](training/unet_training.py)
 
