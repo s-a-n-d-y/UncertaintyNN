@@ -186,7 +186,7 @@ val_masks_folder = folder[3].split('/')[0]
 # Seed defined for aligning images and their masks
 seed = 1
 model = unet(n_filters = 32)
-model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=['accuracy'])
+model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=['categorical_accuracy'])
 model.summary()
 
 # Tensorboard settings
@@ -204,7 +204,7 @@ validation_steps = (float((round(0.1*len(camvid.frames_list)))) / float(batch_si
 print("Steps per epoch is: ", steps_per_epoch)
 print("Validation steps per epoch is: ", validation_steps)
 
-result = model.fit_generator(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = 1, batch_size = 5), 
+result = model.fit(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = 1, batch_size = 5), 
                     steps_per_epoch=18,
                     validation_data = dataAugmentGenerator(img_dir, val_frames_datagen, val_masks_datagen, val_frames_folder, val_masks_folder, seed = 1, batch_size = 5),
                     validation_steps = validation_steps, epochs=num_epochs, callbacks=callbacks)
