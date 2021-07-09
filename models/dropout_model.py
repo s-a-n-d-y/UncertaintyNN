@@ -13,6 +13,8 @@ class DropoutModel(tf.keras.layers.Layer):
             tf.keras.layers.Dropout(self.keep_prob),
             tf.keras.layers.Dense(1)
         ])
+        
+     
 
     def call(self, x):
         output = self.model(x)

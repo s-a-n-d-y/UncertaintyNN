@@ -17,7 +17,8 @@ class MixtureModel(tf.keras.layers.Layer):
             tf.keras.layers.Dense(50, activation=tf.keras.activations.relu),
             tf.keras.layers.Dropout(self.keep_prob),
             tf.keras.layers.Dense(self.n_mixtures * 3)
-        ])
+        ])      
+        
         
     def call(self, x):
         output_layer = self.model(x)
