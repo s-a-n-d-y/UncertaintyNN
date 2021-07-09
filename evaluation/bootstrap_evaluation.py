@@ -1,8 +1,13 @@
+import sys
+sys.path.append('../')
+
 from matplotlib.backends.backend_pdf import PdfPages
 
 from data import sample_generators
 
 import matplotlib.pyplot as plt
+
+import tensorflow as tf
 
 import numpy as np
 import plotting
@@ -11,6 +16,35 @@ from training.bootstrap_training import bootstrap_training
 
 
 def bootstrap_evaluation(x, y, dropout, learning_rate, epochs, n_heads, ax):
+    bootstrap_model =\
+        bootstrap_training(x, y, dropout, learning_rate, epochs, n_heads)
+
+    additional_range = 0.2 * np.max(x)
+    x_eval = np.linspace(np.min(x) - additional_range, np.max(x) + additional_range, 100).reshape([-1, 1])
+    
+    mask = tf.cast(np.ones(shape=(len(x_eval), n_heads, 1)), dtype=bootstrap_model.mask.dtype)
+    
+    bootstrap_model.set_mask(mask)
+    
+    bootstrap_model.set_dropout_rate(0) 
+    
+    heads, mean, var = bootstrap_model(x_eval)
+    
+    y_eval = mean.numpy()
+    uncertainties_eval = var.numpy()
+    heads_eval = heads.numpy()
+
+    heads_eval = np.array(heads_eval).reshape(len(x_eval), n_heads)
+    y_eval = y_eval.flatten()
+    uncertainties_eval = uncertainties_eval.flatten()
+
+    for i in range(n_heads):
+        ax.plot(x_eval, heads_eval[:, i], alpha=0.3)
+
+    plotting.plot_mean_vs_truth(x, y, x_eval, y_eval, uncertainties_eval, ax)
+
+
+def bootstrap_evaluation_old(x, y, dropout, learning_rate, epochs, n_heads, ax):
     sess, x_placeholder, dropout_placeholder, mask_placeholder =\
         bootstrap_training(x, y, dropout, learning_rate, epochs, n_heads)
 
@@ -38,17 +72,17 @@ def bootstrap_evaluation(x, y, dropout, learning_rate, epochs, n_heads, ax):
 if __name__ == "__main__":
     heads = [3, 5, 10, 15]
     fig, axs = plt.subplots(len(heads), 1, figsize=(30, 5*len(heads)), sharey=True)
-    fig.suptitle('Bootstrap-Model | Epochs: 15000, Learning Rate: 1e-3', fontsize=20)
+    fig.suptitle('Bootstrap-Model | Epochs: 150, Learning Rate: 1e-3', fontsize=20)
     x, y = sample_generators.generate_osband_sin_samples()
     for n_heads, ax in zip(heads, axs):
         ax.set_title("%d Heads" % n_heads)
-        bootstrap_evaluation(x, y, 0.3, 1e-3, 15000, n_heads, ax)
+        bootstrap_evaluation(x, y, 0.3, 1e-3, 150, n_heads, ax)
         fig.savefig("Bootstrap_Sinus.pdf")
 
     fig, axs = plt.subplots(len(heads), 1, figsize=(30, 5*len(heads)), sharey=True)
-    fig.suptitle('Bootstrap-Model | Epochs: 15000, Learning Rate: 1e-3', fontsize=20)
+    fig.suptitle('Bootstrap-Model | Epochs: 150, Learning Rate: 1e-3', fontsize=20)
     x, y = sample_generators.generate_osband_nonlinear_samples()
     for n_heads, ax in zip(heads, axs):
         ax.set_title("%d Heads" % n_heads)
-        bootstrap_evaluation(x, y, 0.2, 1e-3, 15000, n_heads, ax)
+        bootstrap_evaluation(x, y, 0.2, 1e-3, 150, n_heads, ax)
         fig.savefig("Bootstrap_Nonlinear.pdf")
