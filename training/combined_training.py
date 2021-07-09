@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 
-def combine_training(x_truth, y_truth, dropout, learning_rate, epochs, display_step=2000):
+def combined_training(x_truth, y_truth, dropout, learning_rate, epochs, display_step=2000):
     """
     Generic training of a Combined (uncertainty) network for 2D data.
 
@@ -21,9 +21,18 @@ def combine_training(x_truth, y_truth, dropout, learning_rate, epochs, display_s
     :return: session, x_placeholder, dropout_placeholder
     """   
     model = combined_model.CombinedModel(dropout)
-    data_shape = list(np.shape(x_truth))
-    data_shape[0]=None
-    model.build(tuple(data_shape))
+    
+    
+    if len(np.shape(x_truth))==1:
+        x_truth = np.expand_dims(x_truth, axis=-1)
+    
+    #data_shape = list(np.shape(x_truth))
+    
+    #data_shape=data_shape[1:]
+    
+    
+    #model.build(Input_shape=tuple(data_shape))
+    model.build(np.shape(x_truth))
     
     def loss_fcn(ground_truth, prediction, log_variance):
         return tf.reduce_sum(
@@ -33,7 +42,7 @@ def combine_training(x_truth, y_truth, dropout, learning_rate, epochs, display_s
     
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     
-    @tf.function
+    #@tf.function
     def train_step(inputs, ground_truth):
         with tf.GradientTape() as tape:
             prediction, log_variance = model(inputs)
