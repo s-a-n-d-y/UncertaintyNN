@@ -14,6 +14,8 @@ class CombinedModel(tf.keras.layers.Layer):
             tf.keras.layers.Dense(2)
         ])
         
+
+        
     def call(self, x):
         output = self.model(x)
         

@@ -19,6 +19,7 @@ class DropoutCNNMnistModel(tf.keras.layers.Layer):
             tf.keras.layers.Dropout(dropout_rate),
             tf.keras.layers.Dense(10)
         ])
+
         
     def call(self, x):
         if len(tf.shape(x))!=4:
@@ -63,6 +64,7 @@ class CombinedCNNMnistModel(tf.keras.layers.Layer):
         z = tf.keras.layers.Dense(10)(x)
         
         self.model = tf.keras.Model(inputs = inputs, outputs = [y,z])
+          
         
     def call(self, x):
         if len(tf.shape(x))!=4:
@@ -107,6 +109,7 @@ class BootstrapCNNMnistModel(tf.keras.layers.Layer):
             heads.append([logits, class_prob])
             
         self.model = tf.keras.Model(inputs = inputs, outputs = heads)
+
         
     def call(self, x):
         if len(tf.shape(x))!=4:

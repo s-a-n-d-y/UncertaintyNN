@@ -30,6 +30,7 @@ class BootstrapModel(tf.keras.layers.Layer):
             heads.append(x)
         self.model = tf.keras.Model(inputs=inputs, outputs = heads)
         
+        
     def call(self, x):
         outputs = self.model(x)
         outputs = tf.stack(outputs, axis=1)
