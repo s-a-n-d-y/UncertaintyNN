@@ -36,15 +36,9 @@ def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads
         y_truth = np.expand_dims(y_truth, axis=-1)
     
     build_shape = list(np.shape(x_truth))[1:]
-    print(np.shape(x_truth))
-  
-    #data_shape[0]=None
     
     model = bootstrap_model.BootstrapModel(dropout, n_heads, mask, tuple(build_shape))
  
-    #model.build(tuple(data_shape))
-    
-    
     
     def loss_fcn(ground_truth, heads):
         labels = tf.cast(tf.tile(tf.expand_dims(ground_truth, axis=1), [1, n_heads, 1]), dtype=heads.dtype)
@@ -62,7 +56,6 @@ def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         return loss, heads, mean, variance
 
-
     for epoch in range(epochs):
         loss, heads, mean, variance = train_step(x_truth, y_truth)
 
@@ -72,6 +65,7 @@ def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads
             print("================")
 
     print("Training done!")
+
     return model
 
 
