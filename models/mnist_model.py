@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class DropoutCNNMnistModel(tf.keras.layers.Layer):
+class DropoutCNNMnistModel(tf.keras.Model):
     def __init__(self, dropout_rate):
         super().__init__()
         
@@ -26,6 +26,16 @@ class DropoutCNNMnistModel(tf.keras.layers.Layer):
             x = tf.reshape(x, [-1, 28, 28, 1])
         logits = self.model(x)
         return logits, tf.nn.softmax(logits)
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
 
 
 def dropout_cnn_mnist_model(x, dropout_rate, reuse=False):
@@ -72,6 +82,17 @@ class CombinedCNNMnistModel(tf.keras.layers.Layer):
             
         logits, uncertainty = self.model(x)
         return logits, tf.nn.softmax(logits), uncertainty
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
         
 
 
@@ -116,6 +137,17 @@ class BootstrapCNNMnistModel(tf.keras.layers.Layer):
             x = tf.reshape(x, [-1, 28, 28, 1])
             
         return self.model(x)
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
 
 
 def bootstrap_cnn_mnist_model(x, dropout_rate, n_heads=5, reuse=False):

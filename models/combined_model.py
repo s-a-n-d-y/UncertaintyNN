@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class CombinedModel(tf.keras.layers.Layer):
+class CombinedModel(tf.keras.Model):
     def __init__(self, dropout_rate):
         super().__init__()
         
@@ -23,6 +23,18 @@ class CombinedModel(tf.keras.layers.Layer):
         log_variance = tf.expand_dims(output[:,1], -1)
         
         return predictions, log_variance
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
+                
 
 
 def combined_model(x, dropout_rate):

@@ -2,7 +2,7 @@ import tensorflow as tf
 #import tensorflow.contrib.layers as layers
 
 
-class MixtureModel(tf.keras.layers.Layer):
+class MixtureModel(tf.keras.Model):
     def __init__(self, dropout_rate, n_mixtures):
         super().__init__()
         
@@ -43,6 +43,17 @@ class MixtureModel(tf.keras.layers.Layer):
         uncertainties = tf.stack([aleatoric_uncertainty, epistemic_uncertainty])
         
         return gmm, mean, uncertainties
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
 
 
 def mixture_model(x, dropout_rate, n_mixtures):

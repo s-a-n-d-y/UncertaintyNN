@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class DropoutModel(tf.keras.layers.Layer):
+class DropoutModel(tf.keras.Model):
     def __init__(self, dropout_rate):
         super().__init__()
         self.keep_prob = 1 - dropout_rate
@@ -21,6 +21,17 @@ class DropoutModel(tf.keras.layers.Layer):
         predictions = tf.reshape(output, [-1, 1])
         
         return predictions
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
         
 
 def dropout_model(x, dropout_rate):
