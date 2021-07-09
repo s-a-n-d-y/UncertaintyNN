@@ -27,6 +27,7 @@ class BootstrapModel(tf.keras.layers.Layer):
             x = tf.keras.layers.Dense(50, activation=tf.keras.activations.relu)(x)
             x = tf.keras.layers.Dropout(self.keep_prob)(x)
             x = tf.keras.layers.Dense(50, activation=tf.keras.activations.relu)(x)
+            x = tf.keras.layers.Dense(1)(x)
             heads.append(x)
         self.model = tf.keras.Model(inputs=inputs, outputs = heads)
         
@@ -37,7 +38,7 @@ class BootstrapModel(tf.keras.layers.Layer):
         outputs = mask_gradients(outputs, self.mask)
         
         mean, var = tf.nn.moments(outputs, axes=1)
-        return heads, mean, var
+        return outputs, mean, var
 
         
 def bootstrap_model(x, dropout_rate, n_heads, mask):
