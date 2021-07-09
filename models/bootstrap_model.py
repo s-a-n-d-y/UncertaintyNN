@@ -13,7 +13,7 @@ def mask_gradients(x, mask):
     return tf.stop_gradient(mask_h * x) + mask * x
 
 
-class BootstrapModel(tf.keras.layers.Layer):
+class BootstrapModel(tf.keras.Model):
     def __init__(self, dropout_rate, n_heads, mask, input_shape):
         super().__init__()
         self.keep_prob = 1 - dropout_rate
@@ -33,12 +33,26 @@ class BootstrapModel(tf.keras.layers.Layer):
         
         
     def call(self, x):
-        outputs = self.model(x)
-        outputs = tf.stack(outputs, axis=1)
-        outputs = mask_gradients(outputs, self.mask)
+        heads = self.model(x)
+        heads = tf.stack(heads, axis=1)
+        heads = mask_gradients(heads, self.mask)
         
-        mean, var = tf.nn.moments(outputs, axes=1)
-        return outputs, mean, var
+        mean, var = tf.nn.moments(heads, axes=1)
+        return heads, mean, var
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
+                
+    def set_mask(self, mask):
+        self.mask = mask
 
         
 def bootstrap_model(x, dropout_rate, n_heads, mask):
