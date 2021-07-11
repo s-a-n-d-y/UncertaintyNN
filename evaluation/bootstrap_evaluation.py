@@ -15,9 +15,9 @@ import plotting
 from training.bootstrap_training import bootstrap_training
 
 
-def bootstrap_evaluation(x, y, dropout, learning_rate, epochs, n_heads, ax):
+def bootstrap_evaluation(x, y, dropout, learning_rate, epochs, n_heads, ax, display_step=2000):
     bootstrap_model =\
-        bootstrap_training(x, y, dropout, learning_rate, epochs, n_heads)
+        bootstrap_training(x, y, dropout, learning_rate, epochs, n_heads, display_step=display_step)
 
     additional_range = 0.2 * np.max(x)
     x_eval = np.linspace(np.min(x) - additional_range, np.max(x) + additional_range, 100).reshape([-1, 1])
@@ -72,17 +72,17 @@ def bootstrap_evaluation_old(x, y, dropout, learning_rate, epochs, n_heads, ax):
 if __name__ == "__main__":
     heads = [3, 5, 10, 15]
     fig, axs = plt.subplots(len(heads), 1, figsize=(30, 5*len(heads)), sharey=True)
-    fig.suptitle('Bootstrap-Model | Epochs: 150, Learning Rate: 1e-3', fontsize=20)
+    fig.suptitle('Bootstrap-Model | Epochs: 15000, Learning Rate: 1e-3', fontsize=20)
     x, y = sample_generators.generate_osband_sin_samples()
     for n_heads, ax in zip(heads, axs):
         ax.set_title("%d Heads" % n_heads)
-        bootstrap_evaluation(x, y, 0.3, 1e-3, 150, n_heads, ax)
+        bootstrap_evaluation(x, y, 0.3, 1e-3, 15000, n_heads, ax, display_step=1000)
         fig.savefig("Bootstrap_Sinus.pdf")
 
     fig, axs = plt.subplots(len(heads), 1, figsize=(30, 5*len(heads)), sharey=True)
-    fig.suptitle('Bootstrap-Model | Epochs: 150, Learning Rate: 1e-3', fontsize=20)
+    fig.suptitle('Bootstrap-Model | Epochs: 15000, Learning Rate: 1e-3', fontsize=20)
     x, y = sample_generators.generate_osband_nonlinear_samples()
     for n_heads, ax in zip(heads, axs):
         ax.set_title("%d Heads" % n_heads)
-        bootstrap_evaluation(x, y, 0.2, 1e-3, 150, n_heads, ax)
+        bootstrap_evaluation(x, y, 0.2, 1e-3, 15000, n_heads, ax, display_step=1000)
         fig.savefig("Bootstrap_Nonlinear.pdf")

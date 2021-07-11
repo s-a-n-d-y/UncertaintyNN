@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from training.combined_training import combined_training
 
-def combined_evaluation(x, y, dropout, learning_rate, epochs, n_passes, ax):
+def combined_evaluation(x, y, dropout, learning_rate, epochs, n_passes, ax, display_step=2000):
     """
 
     :param x:
@@ -23,7 +23,7 @@ def combined_evaluation(x, y, dropout, learning_rate, epochs, n_passes, ax):
     :param n_passes:
     :return:
     """
-    model = combined_training(x, y, 0.2, learning_rate, epochs)
+    model = combined_training(x, y, 0.2, learning_rate, epochs, display_step=display_step)
 
     additional_range = 0.1 * np.max(x)
     x_eval = np.linspace(np.min(x) - additional_range, np.max(x) + additional_range, 100).reshape([-1, 1])
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     x, y = sample_generators.generate_osband_sin_samples(60)
     for dropout, ax in zip(dropout_values, axs):
         ax.set_title("%.3f Dropout" % dropout)
-        combined_evaluation(x, y, dropout, learning_rate=1e-3, epochs=2000, n_passes=500, ax)
+        combined_evaluation(x, y, dropout, learning_rate=1e-3, epochs=15000, n_passes=500, ax=ax, display_step=1000)
         fig.savefig("Combined_Sinus.pdf")
 
     fig, axs = plt.subplots(len(dropout_values), 1, figsize=(30, 5*len(dropout_values)), sharey=True)
@@ -115,5 +115,5 @@ if __name__ == "__main__":
     x, y = sample_generators.generate_osband_nonlinear_samples()
     for dropout, ax in zip(dropout_values, axs):
         ax.set_title("%.3f Dropout" % dropout)
-        combined_evaluation(x, y, dropout, learning_rate=1e-3, epochs=2000, n_passes=500, ax)
+        combined_evaluation(x, y, dropout, learning_rate=1e-3, epochs=15000, n_passes=500, ax=ax, display_step=1000)
         fig.savefig("Combined_Nonlinear.pdf")
