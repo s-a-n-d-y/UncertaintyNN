@@ -58,13 +58,13 @@ if __name__ == "__main__":
     x, y = sample_generators.generate_osband_sin_samples()
     for dropout, ax in zip(dropout_values, axs):
         ax.set_title("%.3f Dropout" % dropout)
-        dropout_evaluation(x, y, dropout, 1e-3, 100, 100, ax, display_step=10)
+        dropout_evaluation(x, y, dropout, 1e-3, epochs=20000, n_passes=100, ax, display_step=10)
         fig.savefig("Dropout_Sinus.pdf")
 
     fig, axs = plt.subplots(len(dropout_values), 1, figsize=(30, 5*len(dropout_values)), sharey=True)
     x, y = sample_generators.generate_osband_nonlinear_samples()
     for dropout, ax in zip(dropout_values, axs):
         ax.set_title("%.3f Dropout" % dropout)
-        dropout_evaluation(x, y, dropout, 1e-3, 100, 100, ax, display_step=10) 
+        dropout_evaluation(x, y, dropout, 1e-3, epochs=20000, n_passes=100, ax, display_step=10) 
         fig.savefig("Dropout_Nonlinear.pdf")
 
