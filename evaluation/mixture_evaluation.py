@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../')
+
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
@@ -9,7 +12,26 @@ import plotting
 from training.mixture_training import mixture_training
 
 
-def mixture_evaluation(x, y, dropout, learning_rate, epochs, n_mixtures, ax):
+def mixture_evaluation(x, y, dropout, learning_rate, epochs, n_mixtures, ax, display_step=2000):
+    mixture_model = mixture_training(x, y, dropout, learning_rate, epochs, n_mixtures, display_step=display_step)
+
+    additional_range = 0.2 * np.max(x)
+    x_eval = np.linspace(np.min(x) - additional_range, np.max(x) + additional_range, 100).reshape([-1, 1])
+    
+    mixture_model.set_dropout_rate(0)
+
+    _, y_eval, uncertainties_eval = mixture_model(x_eval)
+    y_eval = y_eval.numpy().flatten()
+
+    aleatoric_eval, epistemic_eval = uncertainties_eval
+    total_uncertainty_eval = aleatoric_eval + epistemic_eval
+
+    plotting.plot_mean_vs_truth_with_uncertainties(x, y, x_eval, y_eval, aleatoric_eval, epistemic_eval, ax)
+
+    ax.legend()
+
+
+def mixture_evaluation_old(x, y, dropout, learning_rate, epochs, n_mixtures, ax):
     sess, x_placeholder, dropout_placeholder = \
         mixture_training(x, y, dropout, learning_rate, epochs, n_mixtures)
 
@@ -40,7 +62,7 @@ if __name__ == "__main__":
     x, y = sample_generators.generate_osband_sin_samples()
     for n_mixtures, ax in zip(mixture_values, axs):
         ax.set_title("%d Mixtures" % n_mixtures)
-        mixture_evaluation(x, y, 0.3, 1e-3, n_mixtures=n_mixtures, epochs=15000, ax=ax)
+        mixture_evaluation(x, y, 0.3, 1e-3, n_mixtures=n_mixtures, epochs=20000, ax=ax, display_step=2000)
         fig.savefig("Mixture_Sinus.pdf")
 
     fig, axs = plt.subplots(len(mixture_values), 1, figsize=(30, 5*len(mixture_values)), sharey=True)
@@ -48,7 +70,7 @@ if __name__ == "__main__":
     x, y = sample_generators.generate_osband_nonlinear_samples()
     for n_mixtures, ax in zip(mixture_values, axs):
         ax.set_title("%d Mixtures" % n_mixtures)
-        mixture_evaluation(x, y, 0.3, 1e-3, n_mixtures=n_mixtures, epochs=15000, ax=ax)
+        mixture_evaluation(x, y, 0.3, 1e-3, n_mixtures=n_mixtures, epochs=20000, ax=ax, display_step=2000)
         fig.savefig("Mixture_Nonlinear.pdf")
 
 
