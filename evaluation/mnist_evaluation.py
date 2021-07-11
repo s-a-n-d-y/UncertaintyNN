@@ -55,8 +55,6 @@ def mnist_dropout_evaluation(n_passes=50, dropout_rate=0.5, learning_rate=1e-4, 
         return loss, accuracy
 
     for epoch in range(epochs):
-        #batch = train_dataset[epoch%num_batches]
-
         model.set_dropout_rate(dropout_rate)
         accs = []
         for step, (train_image_batch, train_label_batch) in enumerate(
@@ -197,8 +195,90 @@ def mnist_dropout_evaluation_old(n_passes=50, dropout_rate=0.5, learning_rate=1e
     #     x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
     # np.array([[e] * 10 for e in batch[0]]).reshape(-1, 500)
+    
+    
+def mnist_bootstrap_evaluation(n_heads=5, dropout_rate=0.3, learning_rate=1e-4, epochs=10, display_epoch=2):
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    
+    x_data = tf.cast(x_train, dtype=tf.float32)
+    y_data = tf.cast(tf.keras.utils.to_categorical(y_train), dtype=tf.float32)
+    
+    x_test = tf.cast(x_test, dtype=tf.float32)
+    y_test = tf.cast(tf.keras.utils.to_categorical(y_test), dtype=tf.float32)
+    
+    train_batch_size = 50
+    
+    train_dataset = tf.data.Dataset.from_tensor_slices((x_data, y_data)).batch(train_batch_size)  
+    test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(100)  
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
+    
+    model = mnist_model.BootstrapCNNMnistModel(dropout_rate, n_heads)
+    
+    def loss_fcn(ground_truth, logit_heads):
+        labels = tf.tile(tf.expand_dims(ground_truth, axis=0), [n_heads, 1, 1])
+        loss = tf.compat.v1.losses.softmax_cross_entropy(onehot_labels=labels, logits=logit_heads)
+        #loss = tf.nn.l2_loss(mask * (heads - labels))
+        return loss
 
-def mnist_bootstrap_evaluation(n_heads=5, dropout_rate=0.3, learning_rate=1e-4, epochs=20000, display_step=2000):
+    
+    def train_step(input_data, ground_truth):
+        loss_per_head = []
+        train_per_head = []
+        accuracy_per_head = []
+        
+        with tf.GradientTape(persistent=True) as tape:
+            logit_heads, class_prob_heads = model(input_data)
+            loss = loss_fcn(ground_truth, logit_heads)
+            
+        grads = tape.gradient(loss, model.trainable_weights)
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+        
+        for class_prob_head in class_prob_heads:
+            correct_prediction = tf.equal(tf.argmax(class_prob_head), tf.argmax(ground_truth))
+            accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            accuracy_per_head.append(accuracy)
+             
+        return loss_per_head, accuracy_per_head
+
+
+    rv = bernoulli(0.5)
+    mask = rv.rvs(size=(n_heads, train_batch_size))
+
+    for epoch in range(epochs):
+        model.set_dropout_rate(0.5)
+        accs = []
+        for step, (x, y) in enumerate(
+                    train_dataset
+                ):
+            train_step(x, y)
+            
+        if epoch % display_epoch == 0:
+            print("==================")
+            print("Epoch {}".format(epoch))
+            # cur_loss = sess.run(loss, feed_dict={x_data: batch[0],
+            #                                      y_data: batch[1]})
+            accs = []
+            for _, (train_image_batch, train_label_batch) in enumerate(
+                    train_dataset
+                ):
+                logit_heads, class_prob_heads = model(train_image_batch)
+                accuracy_per_head = []
+                for class_prob_head in class_prob_heads:
+                    correct_prediction = tf.equal(tf.argmax(class_prob_head), tf.argmax(train_label_batch))
+                    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                    accuracy_per_head.append(accuracy)
+                    
+                accs.append(accuracy_per_head)
+                    
+
+            accs = tf.reduce_mean(accs, axis=0)
+            for ind, acc in enumerate(accs):
+                print("Head {}, Accuracy: {}".format(ind, acc))
+
+
+
+def mnist_bootstrap_evaluation_old(n_heads=5, dropout_rate=0.3, learning_rate=1e-4, epochs=20000, display_step=2000):
     mnist = input_data.read_data_sets("../data/MNIST-data", one_hot=True)
 
     x_data = tf.placeholder(tf.float32, shape=[None, 784])
@@ -250,5 +330,5 @@ def mnist_bootstrap_evaluation(n_heads=5, dropout_rate=0.3, learning_rate=1e-4, 
 
 
 if __name__ == "__main__":
-    mnist_dropout_evaluation(epochs=2)
-    # mnist_bootstrap_evaluation(display_step=50)
+    # mnist_dropout_evaluation(epochs=2)
+    mnist_bootstrap_evaluation(epochs=10, display_epoch=1)

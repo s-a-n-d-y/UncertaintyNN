@@ -126,8 +126,8 @@ class BootstrapCNNMnistModel(tf.keras.layers.Layer):
         heads = []
         for _ in range(n_heads):
             logits = tf.keras.layers.Dense(10)(x)
-            class_prob = tf.nn.softmax(logits)
-            heads.append([logits, class_prob])
+            
+            heads.append(logits)
             
         self.model = tf.keras.Model(inputs = inputs, outputs = heads)
 
@@ -135,8 +135,13 @@ class BootstrapCNNMnistModel(tf.keras.layers.Layer):
     def call(self, x):
         if len(tf.shape(x))!=4:
             x = tf.reshape(x, [-1, 28, 28, 1])
+            logits = self.model(x)
             
-        return self.model(x)
+            class_probs = []
+            for head in logits:
+                class_probs.append(tf.nn.softmax(head))
+            
+        return logits, class_probs
     
     
     def get_layers(self):
