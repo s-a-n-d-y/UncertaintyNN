@@ -20,9 +20,9 @@ class Dataloader:
         self.label_codes, self.label_names = list(label_codes), list(label_names)
         self.code2id = {v:k for k,v in enumerate(self.label_codes)}
         self.id2code = {k:v for k,v in enumerate(self.label_codes)}
-        self.create_folders()
+        #self.create_folders()
         self.frame_tensors, self.masks_tensors, self.frames_list, self.masks_list = self.read_images(self.img_dir)
-        self.create_training_data(self.frame_tensors, self.masks_tensors, self.frames_list, self.masks_list)
+        #self.create_training_data(self.frame_tensors, self.masks_tensors, self.frames_list, self.masks_list)
         
 
     def create_folders(self):
