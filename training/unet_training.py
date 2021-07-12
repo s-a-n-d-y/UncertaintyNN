@@ -84,7 +84,7 @@ model = unet(n_filters = 32, batch_size = batch_size)
 model.compile(optimizer='adam', 
               loss={
                   'segmentation_output': 'categorical_crossentropy',
-                  'uncertainity_output': my_loss_fn
+                  'uncertainity_output': log_loss_var(log_var=log_var)
                    }, 
               metrics={
                   'segmentation_output': 'categorical_accuracy',

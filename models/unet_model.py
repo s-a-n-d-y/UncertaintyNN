@@ -215,6 +215,9 @@ def unet(n_filters = 16, batch_size=5, dilation_rate = 1, output_classes=32):
 
 
 #https://heartbeat.fritz.ai/how-to-create-a-custom-loss-function-in-keras-637bd312e9ab
-def log_loss_var(y_actual, y_predicted):
-    loss = tf.reduce_sum(0.5 * tf.exp(-1 * log_variance) * tf.square(tf.abs(y_actual - y_predicted))
-                         + 0.5 * log_variance)
+def log_loss_var(log_var):
+    def loss(y_actual, y_predicted)
+        return tf.reduce_sum(
+            0.5 * tf.exp(-1 * log_var) * tf.square(tf.abs(y_actual - y_predicted)) + 
+            0.5 * log_var)
+    return loss
