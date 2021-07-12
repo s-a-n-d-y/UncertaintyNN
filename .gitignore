@@ -9,3 +9,6 @@ venv/*
 # Ignore python cache files
 *.pyc
 */__pychace__/*
+
+# Ignore trained models
+*.h5

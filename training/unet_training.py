@@ -48,6 +48,19 @@ def dataAugmentGenerator(img_dir, frames_datagen, masks_datagen, frames_folder, 
 img_dir = '/home/sandy/Projects/PhD/Courses/WASP/DL-GAN/WASP-DL-GAN-HA/HA3/Group/CamSeq01/'
 folder = ['train_frames/train', 'train_masks/train', 'val_frames/val', 'val_masks/val']
 camvid = Dataloader(img_dir, folder)
+pre_trained = False
+# Seed defined for aligning images and their masks
+seed = 1
+batch_size = 9
+num_epochs = 50
+model_weights = "camvid_model_"+ str(num_epochs) +"_epochs.h5"
+model_weights_checkpoint = "camvid_model_"+ str(num_epochs) +"_epochs_checkpoint.h5"
+steps_per_epoch = np.ceil(float(len(camvid.frames_list) - round(0.1*len(camvid.frames_list))) / float(batch_size))
+validation_steps = (float((round(0.1*len(camvid.frames_list)))) / float(batch_size))
+
+print("Steps per epoch is: ", steps_per_epoch)
+print("Validation steps per epoch is: ", validation_steps)
+
 camvid.visualize_sample(n_images_to_show=2)
 # Normalizing only frame images, since masks contain label info
 data_gen_args = dict(rescale=1./255)
@@ -67,31 +80,80 @@ val_masks_folder = folder[3].split('/')[0]
 ############################### Here we can load our uncertainity models #####################################
 ##############################################################################################################
 
-# Seed defined for aligning images and their masks
-seed = 1
-batch_size = 1
-num_epochs = 10
-steps_per_epoch = np.ceil(float(len(camvid.frames_list) - round(0.1*len(camvid.frames_list))) / float(batch_size))
-validation_steps = (float((round(0.1*len(camvid.frames_list)))) / float(batch_size))
-
-print("Steps per epoch is: ", steps_per_epoch)
-print("Validation steps per epoch is: ", validation_steps)
-
 model = unet(n_filters = 32, batch_size = batch_size)
 model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=['categorical_accuracy'])
 model.summary()
 
 # Tensorboard settings
 tb = TensorBoard(log_dir='logs', write_graph=True)
-mc = ModelCheckpoint(mode='max', filepath='camvid_model_150_epochs_checkpoint.h5', monitor='accuracy', save_best_only='True', save_weights_only='True', verbose=1)
+mc = ModelCheckpoint(mode='max', filepath=model_weights_checkpoint, monitor='accuracy', save_best_only='True', save_weights_only='True', verbose=1)
 es = EarlyStopping(mode='max', monitor='val_accuracy', patience=10, verbose=1)
 callbacks = [tb, mc, es]
 
-result = model.fit(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = seed, batch_size = batch_size), 
+if pre_trained:
+    model.load_weights(model_weights)
+else:
+    result = model.fit(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = seed, batch_size = batch_size), 
                     steps_per_epoch=steps_per_epoch,
+                    batch_size = batch_size,
                     validation_data = dataAugmentGenerator(img_dir, val_frames_datagen, val_masks_datagen, val_frames_folder, val_masks_folder, seed = seed, batch_size = batch_size),
                     validation_steps = validation_steps, epochs=num_epochs, callbacks=callbacks)
-model.save_weights("camvid_model_150_epochs.h5", overwrite=True)
+    model.save_weights(model_weights, overwrite=True)
 
+    ##########################################################################################################
+    ##################################### Training statistics ################################################
+    ##########################################################################################################
+    # Get actual number of epochs model was trained for
+    N = len(result.history['loss'])
 
+    #Plot the model evaluation history
+    plt.style.use("ggplot")
+    fig = plt.figure(figsize=(20,8))
 
+    fig.add_subplot(1,2,1)
+    plt.title("Training Loss")
+    plt.plot(np.arange(0, N), result.history["loss"], label="train_loss")
+    plt.plot(np.arange(0, N), result.history["val_loss"], label="val_loss")
+    plt.ylim(0, 1)
+
+    fig.add_subplot(1,2,2)
+    plt.title("Training Accuracy")
+    plt.plot(np.arange(0, N), result.history["categorical_accuracy"], label="train_accuracy")
+    plt.plot(np.arange(0, N), result.history["val_categorical_accuracy"], label="val_accuracy")
+    plt.ylim(0, 1)
+
+    plt.xlabel("Epoch #")
+    plt.ylabel("Loss/Accuracy")
+    plt.legend(loc="lower left")
+    plt.show()
+
+##############################################################################################################
+########################################## Inference Satistics ###############################################
+##############################################################################################################
+
+testing_gen = dataAugmentGenerator(img_dir, val_frames_datagen, val_masks_datagen, val_frames_folder, val_masks_folder, seed = seed, batch_size = batch_size)
+batch_img,batch_mask = next(testing_gen)
+pred_all= model.predict(batch_img)
+
+#print(np.shape(pred_all))
+
+for i in range(0,np.shape(pred_all)[0]):
+    
+    fig = plt.figure(figsize=(20,8))
+    
+    ax1 = fig.add_subplot(1,3,1)
+    ax1.imshow(batch_img[i])
+    ax1.title.set_text('Actual frame')
+    ax1.grid(b=None)
+    
+    ax2 = fig.add_subplot(1,3,2)
+    ax2.set_title('Ground truth labels')
+    ax2.imshow(camvid.onehot_to_rgb(batch_mask[i], camvid.id2code))
+    ax2.grid(b=None)
+    
+    ax3 = fig.add_subplot(1,3,3)
+    ax3.set_title('Predicted labels')
+    ax3.imshow(camvid.onehot_to_rgb(pred_all[i], camvid.id2code))
+    ax3.grid(b=None)
+    
+    plt.show()
