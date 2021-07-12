@@ -69,7 +69,15 @@ val_masks_folder = folder[3].split('/')[0]
 
 # Seed defined for aligning images and their masks
 seed = 1
-model = unet(n_filters = 32)
+batch_size = 1
+num_epochs = 10
+steps_per_epoch = np.ceil(float(len(camvid.frames_list) - round(0.1*len(camvid.frames_list))) / float(batch_size))
+validation_steps = (float((round(0.1*len(camvid.frames_list)))) / float(batch_size))
+
+print("Steps per epoch is: ", steps_per_epoch)
+print("Validation steps per epoch is: ", validation_steps)
+
+model = unet(n_filters = 32, batch_size = batch_size)
 model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=['categorical_accuracy'])
 model.summary()
 
@@ -79,18 +87,9 @@ mc = ModelCheckpoint(mode='max', filepath='camvid_model_150_epochs_checkpoint.h5
 es = EarlyStopping(mode='max', monitor='val_accuracy', patience=10, verbose=1)
 callbacks = [tb, mc, es]
 
-
-batch_size = 5
-num_epochs = 10
-steps_per_epoch = np.ceil(float(len(camvid.frames_list) - round(0.1*len(camvid.frames_list))) / float(batch_size))
-validation_steps = (float((round(0.1*len(camvid.frames_list)))) / float(batch_size))
-
-print("Steps per epoch is: ", steps_per_epoch)
-print("Validation steps per epoch is: ", validation_steps)
-
-result = model.fit(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = 1, batch_size = 5), 
-                    steps_per_epoch=18,
-                    validation_data = dataAugmentGenerator(img_dir, val_frames_datagen, val_masks_datagen, val_frames_folder, val_masks_folder, seed = 1, batch_size = 5),
+result = model.fit(dataAugmentGenerator(img_dir, train_frames_datagen, train_masks_datagen, train_frames_folder, train_masks_folder, seed = seed, batch_size = batch_size), 
+                    steps_per_epoch=steps_per_epoch,
+                    validation_data = dataAugmentGenerator(img_dir, val_frames_datagen, val_masks_datagen, val_frames_folder, val_masks_folder, seed = seed, batch_size = batch_size),
                     validation_steps = validation_steps, epochs=num_epochs, callbacks=callbacks)
 model.save_weights("camvid_model_150_epochs.h5", overwrite=True)
 
