@@ -1,6 +1,39 @@
 import tensorflow as tf
 
 
+class DropoutModel(tf.keras.Model):
+    def __init__(self, dropout_rate):
+        super().__init__()
+        self.keep_prob = 1 - dropout_rate
+        
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Dense(50, activation=tf.keras.activations.relu),
+            tf.keras.layers.Dropout(self.keep_prob),
+            tf.keras.layers.Dense(50, activation=tf.keras.activations.relu),
+            tf.keras.layers.Dropout(self.keep_prob),
+            tf.keras.layers.Dense(1)
+        ])
+        
+     
+
+    def call(self, x):
+        output = self.model(x)
+        predictions = tf.reshape(output, [-1, 1])
+        
+        return predictions
+    
+    
+    def get_layers(self):
+        return self.model.layers
+    
+    
+    def set_dropout_rate(self, dropout_rate):
+        layers = self.get_layers()
+        for layer in layers:
+            if "dropout" in layer.name:
+                layer.rate = dropout_rate
+        
+
 def dropout_model(x, dropout_rate):
     """
     Constructs Dropout network to process simple 2D data.
@@ -10,17 +43,5 @@ def dropout_model(x, dropout_rate):
     :param dropout_rate:
     :return: prediction
     """
-    keep_prob = 1 - dropout_rate
-
-    fc1 = tf.layers.dense(inputs=x, units=50, activation=tf.nn.relu)
-    fc1 = tf.nn.dropout(fc1, keep_prob)
-
-    fc2 = tf.layers.dense(inputs=fc1, units=50, activation=tf.nn.relu)
-    fc2 = tf.nn.dropout(fc2, keep_prob)
-
-    output_layer = tf.layers.dense(inputs=fc2, units=1)
-    predictions = tf.reshape(output_layer, [-1, 1])
-
-    return predictions
-
-
+    return DropoutModel(dropout_rate)(x)
+    

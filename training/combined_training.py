@@ -1,11 +1,70 @@
+import sys
+sys.path.append('../')
+
 from models import combined_model
 from data import sample_generators
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
-
+import numpy as np
 
 def combined_training(x_truth, y_truth, dropout, learning_rate, epochs, display_step=2000):
+    """
+    Generic training of a Combined (uncertainty) network for 2D data.
+
+    :param x_truth: training samples x
+    :param y_truth: training samples y / label
+    :param dropout:
+    :param learning_rate:
+    :param epochs:
+    :param display_step:
+    :return: session, x_placeholder, dropout_placeholder
+    """   
+    model = combined_model.CombinedModel(dropout)
+    
+    
+    if len(np.shape(x_truth))==1:
+        x_truth = np.expand_dims(x_truth, axis=-1)
+    
+    #data_shape = list(np.shape(x_truth))
+    
+    #data_shape=data_shape[1:]
+    
+    
+    #model.build(Input_shape=tuple(data_shape))
+    model.build(np.shape(x_truth))
+    
+    def loss_fcn(ground_truth, prediction, log_variance):
+        return tf.reduce_sum(
+            0.5 * tf.exp(-1 * log_variance) * tf.square(tf.abs(ground_truth - prediction))
+            + 0.5 * log_variance
+        )
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    
+    #@tf.function
+    def train_step(inputs, ground_truth):
+        with tf.GradientTape() as tape:
+            prediction, log_variance = model(inputs)
+            loss = loss_fcn(ground_truth, prediction, log_variance)
+        grads = tape.gradient(loss, model.trainable_weights)
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+        return loss, prediction, log_variance
+    
+    for epoch in range(epochs):
+        loss, prediction, log_variance = train_step(x_truth, y_truth)
+        
+        if epoch % display_step == 0:
+            print("Epoch {}".format(epoch))
+            print("Loss {}".format(loss))
+            print("================")
+            
+    print("Training done!")
+    
+    return model
+
+
+def combined_training_old(x_truth, y_truth, dropout, learning_rate, epochs, display_step=2000):
     """
     Generic training of a Combined (uncertainty) network for 2D data.
 

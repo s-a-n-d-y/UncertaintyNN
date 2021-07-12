@@ -1,11 +1,75 @@
+import sys
+sys.path.append('../')
+
 from scipy.stats import bernoulli
 from models import bootstrap_model
 from data import sample_generators
 
 import tensorflow as tf
+import numpy as np
 
+
+import matplotlib.pyplot as plt
 
 def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads, display_step=2000):
+    """
+    Generic training of Boostrap Network for 2D data.
+
+    :param x_truth: training samples x
+    :param y_truth: training samples y / label
+    :param dropout:
+    :param learning_rate:
+    :param epochs:
+    :param n_heads: Number of heads for trained Network
+    :param display_step:
+    :return: session, x_placeholder, dropout_placeholder, mask_placeholder
+    """
+    # This placeholder holds the mask indicating which heads see which samples
+    mask_rv = bernoulli(0.5)
+    # Since we are not using Mini-Batches computing the mask once suffices
+    mask = tf.cast(mask_rv.rvs(size=(len(x_truth), n_heads, 1)), dtype=tf.float32)
+    
+    if len(np.shape(x_truth))==1:
+        x_truth = np.expand_dims(x_truth, axis=-1)
+    
+    if len(np.shape(y_truth))==1:
+        y_truth = np.expand_dims(y_truth, axis=-1)
+    
+    build_shape = list(np.shape(x_truth))[1:]
+    
+    model = bootstrap_model.BootstrapModel(dropout, n_heads, mask, tuple(build_shape))
+ 
+    
+    def loss_fcn(ground_truth, heads):
+        labels = tf.cast(tf.tile(tf.expand_dims(ground_truth, axis=1), [1, n_heads, 1]), dtype=heads.dtype)
+        loss = tf.nn.l2_loss(mask * (heads - labels))
+        return loss
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    
+    #@tf.function
+    def train_step(inputs, ground_truth):
+        with tf.GradientTape() as tape:
+            heads, mean, variance = model(inputs)
+            loss = loss_fcn(ground_truth, heads)
+        grads = tape.gradient(loss, model.trainable_weights)
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+        return loss, heads, mean, variance
+
+    for epoch in range(epochs):
+        loss, heads, mean, variance = train_step(x_truth, y_truth)
+
+        if epoch % display_step == 0:
+            print("Epoch {}".format(epoch))
+            print("Loss {}".format(loss))
+            print("================")
+
+    print("Training done!")
+
+    return model
+
+
+def bootstrap_training_old(x_truth, y_truth, dropout, learning_rate, epochs, n_heads, display_step=2000):
     """
     Generic training of Boostrap Network for 2D data.
 
@@ -46,7 +110,7 @@ def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads
     mask_rv = bernoulli(0.5)
     # Since we are not using Mini-Batches computing the mask once suffices
     mask = mask_rv.rvs(size=(len(x_truth), n_heads, 1))
-
+    
     for epoch in range(epochs):
         feed_dict = {x_placeholder: x_truth.reshape([-1, 1]),
                      y_placeholder: y_truth.reshape([-1, 1]),
@@ -68,4 +132,4 @@ def bootstrap_training(x_truth, y_truth, dropout, learning_rate, epochs, n_heads
 if __name__ == "__main__":
     #x, y = sample_generators.generate_osband_nonlinear_samples()
     x, y = sample_generators.generate_osband_sin_samples()
-    sess = bootstrap_training(x, y, 0.3, 1e-3, 6000, 5)
+    sess = bootstrap_training(x, y, dropout=0.3, learning_rate=1e-3, epochs=6000, n_heads=5, display_step=200)

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../')
+
 from matplotlib.backends.backend_pdf import PdfPages
 from data import sample_generators
 
