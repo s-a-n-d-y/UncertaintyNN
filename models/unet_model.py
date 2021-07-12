@@ -4,7 +4,7 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.models import *
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Convolution2D, ZeroPadding2D, MaxPooling2D, Cropping2D, Conv2D
+from tensorflow.keras.layers import Convolution2D, ZeroPadding2D, MaxPooling2D, Cropping2D, Conv2D, Dense
 from tensorflow.keras.layers import Input, Add, Dropout, Permute, add
 from tensorflow.compat.v1.layers import conv2d_transpose
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -140,7 +140,7 @@ class Unet(tf.keras.Model):
         return class_probs, log_variance
 
 
-def unet(n_filters = 16, batch_size=5, dilation_rate = 1):
+def unet(n_filters = 16, batch_size=5, dilation_rate = 1, output_classes=32):
     '''Validation Image data generator
         Inputs: 
             n_filters - base convolution filters
@@ -203,8 +203,18 @@ def unet(n_filters = 16, batch_size=5, dilation_rate = 1):
     conv9 = Conv2D(n_filters * 1, (3, 3), activation='relu', padding = 'same', dilation_rate = dilation_rate)(conv9)
     conv9 = BatchNormalization()(conv9)
         
-    conv10 = Conv2D(32, (1, 1), activation='softmax', padding = 'same', dilation_rate = dilation_rate)(conv9)
+    # Segmentation output
+    semantic_seg = Conv2D(output_classes, (1, 1), activation='softmax', padding = 'same', dilation_rate = dilation_rate, name="segmentation_output")(conv9)
+    # Uncertainity output
+    log_var = Conv2D(output_classes, (1, 1), activation='softmax', padding = 'same', dilation_rate = dilation_rate, name="segmentation_output")(conv9)
 
-    model = Model(inputs=inputs, outputs=conv10)
+    # https://towardsdatascience.com/building-a-multi-output-convolutional-neural-network-with-keras-ed24c7bc1178
+    model = Model(inputs=inputs, outputs=[semantic_seg, log_var])
     
     return model
+
+
+#https://heartbeat.fritz.ai/how-to-create-a-custom-loss-function-in-keras-637bd312e9ab
+def log_loss_var(y_actual, y_predicted):
+    loss = tf.reduce_sum(0.5 * tf.exp(-1 * log_variance) * tf.square(tf.abs(y_actual - y_predicted))
+                         + 0.5 * log_variance)

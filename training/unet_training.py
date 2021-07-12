@@ -81,7 +81,14 @@ val_masks_folder = folder[3].split('/')[0]
 ##############################################################################################################
 
 model = unet(n_filters = 32, batch_size = batch_size)
-model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=['categorical_accuracy'])
+model.compile(optimizer='adam', 
+              loss={
+                  'segmentation_output': 'categorical_crossentropy',
+                  'uncertainity_output': my_loss_fn
+                   }, 
+              metrics={
+                  'segmentation_output': 'categorical_accuracy',
+                  'uncertainity_output': 'mse'})
 model.summary()
 
 # Tensorboard settings
@@ -118,8 +125,8 @@ else:
 
     fig.add_subplot(1,2,2)
     plt.title("Training Accuracy")
-    plt.plot(np.arange(0, N), result.history["categorical_accuracy"], label="train_accuracy")
-    plt.plot(np.arange(0, N), result.history["val_categorical_accuracy"], label="val_accuracy")
+    plt.plot(np.arange(0, N), result.history["segmentation_output"], label="train_accuracy")
+    plt.plot(np.arange(0, N), result.history["val_segmentation_output"], label="val_accuracy")
     plt.ylim(0, 1)
 
     plt.xlabel("Epoch #")
