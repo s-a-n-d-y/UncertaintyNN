@@ -13,11 +13,15 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, Earl
 
 
 class Unet(tf.keras.Model):
-    def __init__(self, n_filters=16, dilation_rate=1, dropout_rate=0.3, output_classes=32, batch_size=5, train_mc_samples=5, batch_shape=(256,256,3), num_blocks=5):
+    def __init__(self, n_filters=16, dilation_rate=1, dropout_rate=0.3, output_classes=32, batch_size=5, train_mc_samples=5, batch_shape=(256,256,3), num_blocks=5, num_var_outputs=None):
         super().__init__()
         self.dropout_rate = dropout_rate
         self.output_classes = output_classes
         self.train_mc_samples = train_mc_samples
+        if num_var_outputs is None:
+            self.num_var_outputs = self.output_classes
+        else:
+            self.num_var_outputs = 1
         self.training = True
 
         #Define input batch shape
@@ -44,7 +48,8 @@ class Unet(tf.keras.Model):
             x = BatchNormalization()(x)
             x = tf.keras.layers.Dropout(self.dropout_rate)(x)
 
-        outputs = Conv2D(self.output_classes + 1, (1, 1), padding = 'same', dilation_rate = dilation_rate)(x)
+        #outputs = Conv2D(self.output_classes + 1, (1, 1), padding = 'same', dilation_rate = dilation_rate)(x)
+        outputs = Conv2D(self.output_classes + self.num_var_outputs, (1, 1), padding = 'same', dilation_rate = dilation_rate)(x)
 
         self.model = Model(inputs=inputs, outputs=outputs)
 
@@ -93,27 +98,28 @@ class Unet(tf.keras.Model):
     def call(self, x):
         outputs = self.model(x)
         class_logits = outputs[...,:self.output_classes]
-        log_variance = outputs[...,-1]
-        variance = tf.exp(log_variance)
-        std = tf.math.sqrt(variance)
+        #log_variance = outputs[...,-1]
+        log_variance = outputs[...,self.output_classes:]
+
+        variance = tf.exp(log_variance)  # To convert log_variance to variance
+        std = tf.math.sqrt(variance)  # To convert variance to std
+        if np.shape(std)[-1]!=self.output_classes:
+            scaling = tf.tile(std, (1, 1, 1, self.output_classes))
+
         if self.training:
             class_probs = []
             for ii in range(self.train_mc_samples):
                 noise = tf.random.normal(shape=tf.shape(class_logits))
-                # tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
-                # scaled_noise = noise * tiled_variance
-                tiled_std= tf.tile(tf.expand_dims(std, axis=-1), (1, 1, 1, self.output_classes))
-                scaled_noise = noise * tiled_std
+                scaled_noise = noise * scaling 
+
                 class_probs.append(tf.nn.softmax(class_logits + scaled_noise))
         else:
             noise = tf.random.normal(shape=tf.shape(class_logits))
-            tiled_std= tf.tile(tf.expand_dims(std, axis=-1), (1, 1, 1, self.output_classes))
-            scaled_noise = noise * tiled_std
-            # tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
-            # scaled_noise = noise * tiled_variance
+            scaled_noise = noise * scaling
+
             class_probs = tf.nn.softmax(class_logits + scaled_noise)
 
-        return class_probs, std #log_variance
+        return class_probs, std
 
 
 class CombinedLoss(tf.keras.losses.Loss):
@@ -137,7 +143,7 @@ class CombinedLoss(tf.keras.losses.Loss):
                     )
                 )
             
-        loss = loss + variance_loss
+        loss = variance_loss + loss
 
         return loss
 

@@ -14,7 +14,7 @@ from scipy import misc
 import os
 
 from PIL import Image
-
+import pdb
 
 actual_classes = np.array(
         [
@@ -75,7 +75,8 @@ def class_to_rgb(data):
     for bb in range(data_shape[0]):
         for ii in range(data_shape[1]):
             for jj in range(data_shape[2]):
-                output[bb,ii,jj] = list(dict_class_to_tuple[data[bb,ii,jj]])
+                pixel_class = int(data[bb,ii,jj])
+                output[bb,ii,jj] = list(dict_class_to_tuple[pixel_class])
 
     return np.array(output)
 
@@ -173,192 +174,264 @@ VegetationMisc 192 192 0
 Void 0 0 0
 Wall 64 192 0
 """
-train_frames, train_masks = get_data()
-val_frames, val_masks = get_data("val")
+if __name__=="__main__":
+    train_frames, train_masks = get_data()
+    val_frames, val_masks = get_data("val")
 
-train_x = train_frames / 255
-train_y = train_masks / 255
+    train_x = train_frames / 255
+    train_y = train_masks
 
-val_split = 0.3
+    val_split = 0.3
 
-val_x = train_x[:int(np.ceil(val_split*len(train_x)))]
-val_y = train_y[:int(np.ceil(val_split*len(train_y)))]
+    val_x = train_x[:int(np.ceil(val_split*len(train_x)))]
+    val_y = train_y[:int(np.ceil(val_split*len(train_y)))]
 
-train_x = train_x[int(np.ceil(val_split*len(train_x))):]
-train_y = train_y[int(np.ceil(val_split*len(train_y))):]
+    train_x = train_x[int(np.ceil(val_split*len(train_x))):]
+    train_y = train_y[int(np.ceil(val_split*len(train_y))):]
 
-test_x = val_frames / 255 
-test_y = val_masks
+    test_x = val_frames / 255 
+    test_y = val_masks
 
-train_y = tf.keras.utils.to_categorical(train_y, num_classes=32)
-val_y = tf.keras.utils.to_categorical(val_y, num_classes=32)
-test_y = tf.keras.utils.to_categorical(test_y, num_classes=32)
+    train_y = tf.keras.utils.to_categorical(train_y, num_classes=32)
+    val_y = tf.keras.utils.to_categorical(val_y, num_classes=32)
+    test_y = tf.keras.utils.to_categorical(test_y, num_classes=32)
 
-train_dataset = tf.data.Dataset.from_tensor_slices((train_x, train_y)).batch(5)
-val_dataset = tf.data.Dataset.from_tensor_slices((val_x, val_y)).batch(5)
-test_dataset = tf.data.Dataset.from_tensor_slices((test_x, test_y)).batch(5)
-
-
-# (train_x, train_y), (test_x, test_y) = mnist.load_data()
-# limited_data = 20
-#     
-# 
-# train_x = train_x[:limited_data]
-# train_y = train_y[:limited_data]
-# test_x = test_x[:limited_data]
-# test_y = test_y[:limited_data]
-# 
-# goal_size = np.array([64,64])
-# mnist_size = np.shape(train_x)[1:]
-# difference = goal_size - mnist_size
-# 
-# top_pad = difference[0]//2
-# bottom_pad = difference[0]//2 + difference[0]%2
-# 
-# row_pad = (top_pad, bottom_pad)
-# 
-# left_pad = difference[1]//2
-# right_pad = difference[1]//2 + difference[1]%2
-# 
-# col_pad = (left_pad, right_pad)
-# 
-# batch_pad = (0,0)
-# 
-# train_x_padded = resize(train_x, (limited_data,64,64))
-# test_x_padded = resize(test_x, (limited_data,64,64))
-# 
-# # train_x_padded = np.pad(train_x, (batch_pad, row_pad, col_pad))
-# # test_x_padded = np.pad(test_x, (batch_pad, row_pad, col_pad))
-# 
-# threshold = 100/255
-# train_masks = [[[cls + 1 if cell > threshold else 0 for cell in col] for col in image] for image, cls in zip(train_x_padded, train_y)]
-# 
-# test_masks = [[[cls + 1 if cell > threshold else 0 for cell in col] for col in image] for image, cls in zip(test_x_padded, test_y)]
-# 
-# train_x_padded = np.expand_dims(train_x_padded, axis=-1) / 255
-# train_masks_categorical = tf.keras.utils.to_categorical(train_masks, num_classes=11)
-# 
-# val_x = train_x_padded[:int(np.ceil(0.2*limited_data))]
-# val_masks = train_masks_categorical[:int(np.ceil(0.2*limited_data)),:,:]
-# 
-# train_x_padded = train_x_padded[int(np.ceil(0.2*limited_data)):]
-# train_masks_categorical = train_masks_categorical[int(np.ceil(0.2*limited_data)):]
-# 
-# test_x_padded = np.expand_dims(test_x_padded, axis=-1) / 255
-# test_masks_categorical = tf.keras.utils.to_categorical(test_masks, num_classes=11)
-# 
-# train_dataset = tf.data.Dataset.from_tensor_slices((train_x_padded, train_masks_categorical)).batch(100)
-
-# spoof = np.random.random((10,64,64,3))
-# spoof_labels = np.random.random((10,64,64,32))
-batch_shape = np.shape(train_x)[1:]
-output_classes = np.shape(train_y)[-1]
-model = Unet(num_blocks=5, batch_shape=batch_shape, output_classes=output_classes)
-model.build(input_shape=(None,) + batch_shape)
-model.summary()
-loss_fcn = CombinedLoss(output_classes=output_classes)
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-# class_probs, log_var = model(spoof)
-# # print(loss_fcn(spoof_labels, class_probs))
-# # print(np.shape(class_probs))
-# # print(np.shape(log_var))
- 
-def train_epoch(data, labels):
-    with tf.GradientTape() as tape:
-        class_probs, log_var = model(data)
-        loss = loss_fcn(labels, class_probs)
-
-    grads = tape.gradient(loss, model.trainable_weights)
-    optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-    return loss, class_probs
-
-epochs = 20 
-for epoch in range(epochs):
-    print(f"Start epoch {epoch+1}/{epochs}")
-    try:
-        for step, (img_batch, lab_batch) in enumerate(train_dataset):
-            model.set_training()
-            loss, train_probs = train_epoch(img_batch, lab_batch)
-            train_probs = np.mean(train_probs, axis=0)
-            train_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(lab_batch, train_probs))
-            print(f"Step {step}: \t Loss = {loss} \t Acc = {train_acc}")
-            
-            # diff_along_sample = np.diff(train_probs, axis=0)
-            # print("Max difference between sample predictions", np.max(np.abs(diff_along_sample)))
-
-        model.set_evaluation()
-        probs = []
-        labs = []
-        for step, (img_batch, lab_batch) in enumerate(val_dataset):
-            val_probs, _ = model(img_batch)
-            probs.append(val_probs)
-            labs.append(lab_batch)
-        val_masks = tf.concat(labs, axis=0)
-        val_probs = tf.concat(probs, axis=0)
-        val_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(val_masks, val_probs))
-            
-        print(f"Validation acc: {val_acc}")
-    except KeyboardInterrupt:
-        break
+    train_dataset = tf.data.Dataset.from_tensor_slices((train_x, train_y)).batch(5)
+    val_dataset = tf.data.Dataset.from_tensor_slices((val_x, val_y)).batch(5)
+    test_dataset = tf.data.Dataset.from_tensor_slices((test_x, test_y)).batch(5)
 
 
-model.set_evaluation()
-probs = []
-labs = []
-variances = []
-for step, (img_batch, lab_batch) in enumerate(test_dataset):
-    test_probs, test_var = model(img_batch)
-    probs.append(test_probs)
-    labs.append(lab_batch)
-    variances.append(test_var)
-test_masks = tf.concat(labs, axis=0)
-test_probs = tf.concat(probs, axis=0)
-test_var = tf.concat(variances, axis=0) 
-test_preds = np.argmax(test_probs, axis=-1)
+    # (train_x, train_y), (test_x, test_y) = mnist.load_data()
+    # limited_data = 20
+    #     
+    # 
+    # train_x = train_x[:limited_data]
+    # train_y = train_y[:limited_data]
+    # test_x = test_x[:limited_data]
+    # test_y = test_y[:limited_data]
+    # 
+    # goal_size = np.array([64,64])
+    # mnist_size = np.shape(train_x)[1:]
+    # difference = goal_size - mnist_size
+    # 
+    # top_pad = difference[0]//2
+    # bottom_pad = difference[0]//2 + difference[0]%2
+    # 
+    # row_pad = (top_pad, bottom_pad)
+    # 
+    # left_pad = difference[1]//2
+    # right_pad = difference[1]//2 + difference[1]%2
+    # 
+    # col_pad = (left_pad, right_pad)
+    # 
+    # batch_pad = (0,0)
+    # 
+    # train_x_padded = resize(train_x, (limited_data,64,64))
+    # test_x_padded = resize(test_x, (limited_data,64,64))
+    # 
+    # # train_x_padded = np.pad(train_x, (batch_pad, row_pad, col_pad))
+    # # test_x_padded = np.pad(test_x, (batch_pad, row_pad, col_pad))
+    # 
+    # threshold = 100/255
+    # train_masks = [[[cls + 1 if cell > threshold else 0 for cell in col] for col in image] for image, cls in zip(train_x_padded, train_y)]
+    # 
+    # test_masks = [[[cls + 1 if cell > threshold else 0 for cell in col] for col in image] for image, cls in zip(test_x_padded, test_y)]
+    # 
+    # train_x_padded = np.expand_dims(train_x_padded, axis=-1) / 255
+    # train_masks_categorical = tf.keras.utils.to_categorical(train_masks, num_classes=11)
+    # 
+    # val_x = train_x_padded[:int(np.ceil(0.2*limited_data))]
+    # val_masks = train_masks_categorical[:int(np.ceil(0.2*limited_data)),:,:]
+    # 
+    # train_x_padded = train_x_padded[int(np.ceil(0.2*limited_data)):]
+    # train_masks_categorical = train_masks_categorical[int(np.ceil(0.2*limited_data)):]
+    # 
+    # test_x_padded = np.expand_dims(test_x_padded, axis=-1) / 255
+    # test_masks_categorical = tf.keras.utils.to_categorical(test_masks, num_classes=11)
+    # 
+    # train_dataset = tf.data.Dataset.from_tensor_slices((train_x_padded, train_masks_categorical)).batch(100)
+
+    # spoof = np.random.random((10,64,64,3))
+    # spoof_labels = np.random.random((10,64,64,32))
+    batch_shape = np.shape(train_x)[1:]
+    output_classes = np.shape(train_y)[-1]
+    model = Unet(num_blocks=5, batch_shape=batch_shape, output_classes=output_classes, num_var_outputs=1)
+    model.build(input_shape=(None,) + batch_shape)
+    model.summary()
+    loss_fcn = CombinedLoss(output_classes=output_classes)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    # class_probs, log_var = model(spoof)
+    # # print(loss_fcn(spoof_labels, class_probs))
+    # # print(np.shape(class_probs))
+    # # print(np.shape(log_var))
+     
+    def train_epoch(data, labels):
+        with tf.GradientTape() as tape:
+            class_probs, log_var = model(data)
+            loss = loss_fcn(labels, class_probs)
+
+        grads = tape.gradient(loss, model.trainable_weights)
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+        return loss, class_probs, log_var
+
+    epochs = 10
+    epoch_log_variances = []
+    nans = False
+    for epoch in range(epochs):
+        print(f"Start epoch {epoch}/{epochs-1}")
+        try:
+            step_log_variances = []
+            for step, (img_batch, lab_batch) in enumerate(train_dataset):
+                model.set_training()
+                loss, train_probs, log_var = train_epoch(img_batch, lab_batch)
+                if np.isnan(loss).any() or np.isnan(train_probs).any() or np.isnan(log_var).any():
+                    nans = True
+                    break
+                train_probs = np.mean(train_probs, axis=0)
+                train_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(lab_batch, train_probs))
+                step_log_variances.append(log_var)
+                print(f"Step {step}: \t Loss = {loss} \t Acc = {train_acc}")
+                
+                # diff_along_sample = np.diff(train_probs, axis=0)
+                # print("Max difference between sample predictions", np.max(np.abs(diff_along_sample)))
+
+            np.save(f"train_frames_step_{step}", img_batch)
+            np.save(f"train_masks_step_{step}", lab_batch)
+            np.save(f"train_probs_step_{step}", train_probs)
+            np.save(f"train_log_var_step_{step}", log_var)
+
+            epoch_log_variances.append(step_log_variances)
+
+            model.set_evaluation()
+            probs = []
+            labs = []
+            for step, (img_batch, lab_batch) in enumerate(val_dataset):
+                val_probs, _ = model(img_batch)
+                probs.append(val_probs)
+                labs.append(lab_batch)
+            val_masks = tf.concat(labs, axis=0)
+            val_probs = tf.concat(probs, axis=0)
+            val_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(val_masks, val_probs))
+                
+            print(f"Validation acc: {val_acc}")
+            if nans:
+                break
+        except KeyboardInterrupt:
+            break
+
+    model.save_weights('./checkpoints/unet_with_uncertainty')
 
 
-probs = []
-labs = []
-variances = []
-for step, (img_batch, lab_batch) in enumerate(train_dataset):
-    train_probs, train_var = model(img_batch)
-    probs.append(train_probs)
-    labs.append(lab_batch)
-    variances.append(train_var)
-train_masks = tf.concat(labs, axis=0)
-train_probs = tf.concat(probs, axis=0)
-train_var = tf.concat(variances, axis=0) 
-train_preds = np.argmax(train_probs, axis=-1)
+    # print(np.shape(epoch_log_variances))
 
-_, ax = plt.subplots(3,1 + 11 + 1)
-ax[0,0].imshow(train_x[0])
-ax[0,-1].imshow(train_var[0])
-ax[1,0].imshow(test_x[0])
-ax[1,-1].imshow(test_var[0])
-ax[2,0].imshow(test_x[1])
-ax[2,-1].imshow(test_var[1])
-for ii in range(1,1 + 11):
-    ax[0,ii].imshow(train_probs[0,:,:,ii-1])
-    ax[1,ii].imshow(test_probs[0,:,:,ii-1])
-    ax[2,ii].imshow(test_probs[1,:,:,ii-1])
-plt.show()
+    # while True:
+    #     choice = input("What epoch, step, and sample do you want to view the variance from? (ints separated by ',' 'n' to cancel)\n")
+    #     print(choice)
+    #     choice = choice.replace(" ","")
+    #     choice = choice.split(",")
+    #     print(choice)
+    #     if choice=="n" or choice=="N":
+    #         break
+    #     if len(choice)==1:
+    #         epoch = int(choice[0])
+    #         step = 0
+    #         sample = 0
+    #     elif len(choice)==2:
+    #         epoch = int(choice[0])
+    #         step = int(choice[0])
+    #         sample = 0
+    #     elif len(choice)==3:
+    #         epoch = int(choice[0])
+    #         step = int(choice[0])
+    #         sample = int(choice[0])
+    #     else:
+    #         raise RuntimeError()
+    # 
+    #     print(epoch, type(epoch))
+    #     print(step, type(step))
+    #     print(sample, type(sample))
+    #     plt.imshow(epoch_log_variances[epoch, step, sample])
+    #     plt.show()
 
-_, ax = plt.subplots(5,1 + 11 + 1)
-for ii in range(5):
-    ax[ii,0].imshow(train_x[ii])
-    ax[ii,-1].imshow(train_var[ii])
-for ii in range(5):
-    for jj in range(1,1 + 11):
-        ax[ii,jj].imshow(train_probs[ii,:,:,jj-1])
-plt.show()
+    model.set_evaluation()
+    probs = []
+    labs = []
+    variances = []
+    for step, (img_batch, lab_batch) in enumerate(test_dataset):
+        test_probs, test_var = model(img_batch)
+        probs.append(test_probs)
+        labs.append(lab_batch)
+        variances.append(test_var)
+    test_masks = tf.concat(labs, axis=0)
+    test_probs = tf.concat(probs, axis=0)
+    test_var = tf.concat(variances, axis=0) 
+    test_preds = np.argmax(test_probs, axis=-1)
 
-num_plots = min(10, len(test_preds))
 
-_, ax = plt.subplots(3,num_plots)
-for ii in range(num_plots):
-    ax[0,ii].imshow(test_x[ii])
-    ax[1,ii].imshow(test_preds[ii])
-    ax[2,ii].imshow(test_var[ii])
+    probs = []
+    labs = []
+    variances = []
+    for step, (img_batch, lab_batch) in enumerate(train_dataset):
+        train_probs, train_var = model(img_batch)
+        probs.append(train_probs)
+        labs.append(lab_batch)
+        variances.append(train_var)
+    train_masks = tf.concat(labs, axis=0)
+    train_probs = tf.concat(probs, axis=0)
+    train_var = tf.concat(variances, axis=0) 
+    train_preds = np.argmax(train_probs, axis=-1)
 
-plt.show()
+    _, ax = plt.subplots(3,1 + 11 + 1)
+    ax[0,0].imshow(train_x[0])
+    ax[1,0].imshow(test_x[0])
+    ax[2,0].imshow(test_x[1])
+    if len(np.shape(train_var))==4:
+        ax[0,-1].imshow(train_var[0,...,0])  # I just changed the number of variance outputs to 1 so some of these need to change
+        ax[1,-1].imshow(test_var[0,...,0])
+        ax[2,-1].imshow(test_var[1,...,0])
+    else:
+        ax[0,-1].imshow(train_var[0])  # I just changed the number of variance outputs to 1 so some of these need to change
+        ax[1,-1].imshow(test_var[0])
+        ax[2,-1].imshow(test_var[1])
+
+    for ii in range(1,1 + 11):
+        ax[0,ii].imshow(train_probs[0,:,:,ii-1])
+        ax[1,ii].imshow(test_probs[0,:,:,ii-1])
+        ax[2,ii].imshow(test_probs[1,:,:,ii-1])
+    plt.show()
+
+    _, ax = plt.subplots(5,1 + 11 + 1)
+    for ii in range(5):
+        ax[ii,0].imshow(train_x[ii])
+        if len(np.shape(train_var))==4:
+            ax[ii,-1].imshow(train_var[ii,...,0])
+        else:
+            ax[ii,-1].imshow(train_var[0])
+
+    for ii in range(5):
+        for jj in range(1,1 + 11):
+            ax[ii,jj].imshow(train_probs[ii,:,:,jj-1])
+    plt.show()
+
+    num_plots = min(10, len(test_preds))
+
+    if np.shape(test_var)[-1]==output_classes:
+        var_preds = np.zeros_like(test_preds)   
+
+        for bb in range(np.shape(test_var)[0]):
+            for ii in range(np.shape(test_var)[1]):
+                for jj in range(np.shape(test_var)[2]):
+                    var_preds[bb,ii,jj] = test_var[bb,ii,jj,test_preds[bb,ii,jj]]
+    else:
+        var_preds = test_var
+
+    _, ax = plt.subplots(4,num_plots)
+    test_y = np.argmax(test_y, axis=-1)
+    for ii in range(num_plots):
+        ax[0,ii].imshow(test_x[ii])
+        ax[1,ii].imshow(test_y[ii])
+        ax[2,ii].imshow(test_preds[ii])
+        ax[3,ii].imshow(var_preds[ii])
+
+    plt.show()
