@@ -50,9 +50,25 @@ class Unet(tf.keras.Model):
 
 
     def summary(self):
+        super().summary()
         layers = self.get_layers()
         for layer in layers:
+            print("===========================================")
             print(f"Name: {layer.name}\t\t Output shape: {layer.output_shape}")
+            print("Fed by: ", end=" ")
+            int_node = layer._inbound_nodes[0]
+            # print(int_node.inbound_layers)
+            # out_node = layer._outbound_nodes[0]
+            # print(out_node)
+            predecessor_layers = int_node.inbound_layers
+            if isinstance(predecessor_layers, list):
+                names = []
+                for pre_layer in predecessor_layers:
+                    names.append(pre_layer.name)
+                    # print(pre_layer.name, end="")
+                print(names)
+            else:
+                print(predecessor_layers.name)
 
 
     def set_dropout_rate(self, dropout_rate):
@@ -78,20 +94,26 @@ class Unet(tf.keras.Model):
         outputs = self.model(x)
         class_logits = outputs[...,:self.output_classes]
         log_variance = outputs[...,-1]
+        variance = tf.exp(log_variance)
+        std = tf.math.sqrt(variance)
         if self.training:
             class_probs = []
             for ii in range(self.train_mc_samples):
                 noise = tf.random.normal(shape=tf.shape(class_logits))
-                tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
-                scaled_noise = noise * tiled_variance
+                # tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
+                # scaled_noise = noise * tiled_variance
+                tiled_std= tf.tile(tf.expand_dims(std, axis=-1), (1, 1, 1, self.output_classes))
+                scaled_noise = noise * tiled_std
                 class_probs.append(tf.nn.softmax(class_logits + scaled_noise))
         else:
             noise = tf.random.normal(shape=tf.shape(class_logits))
-            tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
-            scaled_noise = noise * tiled_variance
+            tiled_std= tf.tile(tf.expand_dims(std, axis=-1), (1, 1, 1, self.output_classes))
+            scaled_noise = noise * tiled_std
+            # tiled_variance = tf.tile(tf.expand_dims(log_variance, axis=-1), (1, 1, 1, self.output_classes))
+            # scaled_noise = noise * tiled_variance
             class_probs = tf.nn.softmax(class_logits + scaled_noise)
 
-        return class_probs, log_variance
+        return class_probs, std #log_variance
 
 
 class CombinedLoss(tf.keras.losses.Loss):
@@ -188,6 +210,6 @@ def unet(n_filters = 16, batch_size=5, dilation_rate = 1):
         
     conv10 = Conv2D(32, (1, 1), activation='softmax', padding = 'same', dilation_rate = dilation_rate)(conv9)
 
-    model = Model(inputs=inputs, outputs=conv10)
+    model = tf.keras.Model(inputs=inputs, outputs=conv10)
     
     return model
