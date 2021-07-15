@@ -1,0 +1,2 @@
+model_checkpoint_path: "unet_with_uncertainty"
+all_model_checkpoint_paths: "unet_with_uncertainty"
