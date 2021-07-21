@@ -275,52 +275,55 @@ if __name__=="__main__":
 
         return loss, class_probs, log_var
 
-    epochs = 10
+    epochs = 20
     epoch_log_variances = []
     nans = False
+    best_val_acc = 0
     for epoch in range(epochs):
         print(f"Start epoch {epoch}/{epochs-1}")
-        try:
-            step_log_variances = []
-            for step, (img_batch, lab_batch) in enumerate(train_dataset):
-                model.set_training()
-                loss, train_probs, log_var = train_epoch(img_batch, lab_batch)
-                if np.isnan(loss).any() or np.isnan(train_probs).any() or np.isnan(log_var).any():
-                    nans = True
-                    break
-                train_probs = np.mean(train_probs, axis=0)
-                train_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(lab_batch, train_probs))
-                step_log_variances.append(log_var)
-                print(f"Step {step}: \t Loss = {loss} \t Acc = {train_acc}")
-                
-                # diff_along_sample = np.diff(train_probs, axis=0)
-                # print("Max difference between sample predictions", np.max(np.abs(diff_along_sample)))
-
-            np.save(f"train_frames_step_{step}", img_batch)
-            np.save(f"train_masks_step_{step}", lab_batch)
-            np.save(f"train_probs_step_{step}", train_probs)
-            np.save(f"train_log_var_step_{step}", log_var)
-
-            epoch_log_variances.append(step_log_variances)
-
-            model.set_evaluation()
-            probs = []
-            labs = []
-            for step, (img_batch, lab_batch) in enumerate(val_dataset):
-                val_probs, _ = model(img_batch)
-                probs.append(val_probs)
-                labs.append(lab_batch)
-            val_masks = tf.concat(labs, axis=0)
-            val_probs = tf.concat(probs, axis=0)
-            val_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(val_masks, val_probs))
-                
-            print(f"Validation acc: {val_acc}")
-            if nans:
+        step_log_variances = []
+        for step, (img_batch, lab_batch) in enumerate(train_dataset):
+            model.set_training()
+            loss, train_probs, log_var = train_epoch(img_batch, lab_batch)
+            if np.isnan(loss).any() or np.isnan(train_probs).any() or np.isnan(log_var).any():
+                nans = True
                 break
-        except KeyboardInterrupt:
+            train_probs = np.mean(train_probs, axis=0)
+            train_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(lab_batch, train_probs))
+            step_log_variances.append(log_var)
+            print(f"Step {step}: \t Loss = {loss} \t Acc = {train_acc}")
+            
+            # diff_along_sample = np.diff(train_probs, axis=0)
+            # print("Max difference between sample predictions", np.max(np.abs(diff_along_sample)))
+
+        # np.save(f"train_frames_step_{step}", img_batch)
+        # np.save(f"train_masks_step_{step}", lab_batch)
+        # np.save(f"train_probs_step_{step}", train_probs)
+        # np.save(f"train_log_var_step_{step}", log_var)
+
+        epoch_log_variances.append(step_log_variances)
+
+        model.set_evaluation()
+        probs = []
+        labs = []
+        for step, (img_batch, lab_batch) in enumerate(val_dataset):
+            val_probs, _ = model(img_batch)
+            probs.append(val_probs)
+            labs.append(lab_batch)
+        val_masks = tf.concat(labs, axis=0)
+        val_probs = tf.concat(probs, axis=0)
+        val_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(val_masks, val_probs))
+            
+        print(f"Validation acc: {val_acc}")
+        if val_acc > best_val_acc:
+            print("Best val acc thus far, saving checkpoint.")
+
+            model.save_weights('./checkpoints/unet_with_uncertainty')
+            best_val_acc = val_acc
+
+        if nans:
             break
 
-    model.save_weights('./checkpoints/unet_with_uncertainty')
 
 
     # print(np.shape(epoch_log_variances))
