@@ -63,12 +63,46 @@ for ii in range(num_plots):
 plt.show()
 
 
+# plt.imshow(imgs[0, 2:-3, 2:-3])
+# plt.show()
+# plt.imshow(rgb_labels[0, 2:-3, 2:-3] / 255)
+# plt.show()
+# plt.imshow(rgb_preds[0, 2:-3, 2:-3] / 255)
+# plt.show()
+# plt.imshow(stds[0, 2:-3, 2:-3])
+# plt.show()
+
+
+epistemic_probs = []
+epistemic_stds = []
+for (test_batch, test_mask) in test_dataset:
+    prob, std = model(test_batch, epistemic=True)
+    epistemic_probs.append(prob)
+    epistemic_stds.append(std)
+
+epistemic_probs = tf.concat(epistemic_probs, axis=0)
+epistemic_stds = tf.concat(epistemic_stds, axis=0)
+
+
+num_plots = min(8, len(imgs))
+_, ax = plt.subplots(6,num_plots)
+epistemic_preds = np.argmax(epistemic_probs, axis=-1)
+epistemic_rgb_preds = class_to_rgb(epistemic_preds)
+for ii in range(num_plots):
+    ax[0,ii].imshow(imgs[ii])
+    ax[1,ii].imshow(labels[ii])
+    ax[2,ii].imshow(rgb_labels[ii]/255)
+    ax[3,ii].imshow(epistemic_preds[ii])
+    ax[4,ii].imshow(epistemic_rgb_preds[ii]/255)
+    ax[5,ii].imshow(epistemic_stds[ii])
+
+plt.show()
+
 plt.imshow(imgs[0, 2:-3, 2:-3])
 plt.show()
 plt.imshow(rgb_labels[0, 2:-3, 2:-3] / 255)
 plt.show()
-plt.imshow(rgb_preds[0, 2:-3, 2:-3] / 255)
+plt.imshow(epistemic_rgb_preds[0, 2:-3, 2:-3] / 255)
 plt.show()
-plt.imshow(stds[0, 2:-3, 2:-3])
+plt.imshow(epistemic_stds[0, 2:-3, 2:-3])
 plt.show()
-

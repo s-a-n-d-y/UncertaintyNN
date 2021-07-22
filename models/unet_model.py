@@ -95,29 +95,63 @@ class Unet(tf.keras.Model):
         self.training = True
 
 
-    def call(self, x):
-        outputs = self.model(x)
-        class_logits = outputs[...,:self.output_classes]
-        #log_variance = outputs[...,-1]
-        log_variance = outputs[...,self.output_classes:]
+    def call(self, x, epistemic=False, mc_samplings=5):
+        if not epistemic:
+            outputs = self.model(x)
+            class_logits = outputs[...,:self.output_classes]
+            #log_variance = outputs[...,-1]
+            log_variance = outputs[...,self.output_classes:]
 
-        variance = tf.exp(log_variance)  # To convert log_variance to variance
-        std = tf.math.sqrt(variance)  # To convert variance to std
-        if np.shape(std)[-1]!=self.output_classes:
-            scaling = tf.tile(std, (1, 1, 1, self.output_classes))
+            variance = tf.exp(log_variance)  # To convert log_variance to variance
+            std = tf.math.sqrt(variance)  # To convert variance to std
+            if np.shape(std)[-1]!=self.output_classes:
+                scaling = tf.tile(std, (1, 1, 1, self.output_classes))
 
-        if self.training:
-            class_probs = []
-            for ii in range(self.train_mc_samples):
+            if self.training:
+                class_probs = []
+                for ii in range(self.train_mc_samples):
+                    noise = tf.random.normal(shape=tf.shape(class_logits))
+                    scaled_noise = noise * scaling 
+
+                    class_probs.append(tf.nn.softmax(class_logits + scaled_noise))
+            else:
                 noise = tf.random.normal(shape=tf.shape(class_logits))
-                scaled_noise = noise * scaling 
+                scaled_noise = noise * scaling
 
-                class_probs.append(tf.nn.softmax(class_logits + scaled_noise))
+                class_probs = tf.nn.softmax(class_logits + scaled_noise)
+
         else:
-            noise = tf.random.normal(shape=tf.shape(class_logits))
-            scaled_noise = noise * scaling
+            outputs = []
+            log_vars = []
+            for ii in range(mc_samplings):
+                output = self.model(x)
+                outputs.append(output[...,:self.output_classes].numpy())
+                log_vars.append(output[...,self.output_classes:].numpy())
+            outputs = np.array(outputs)
+            variances = np.exp(np.array(log_vars))
 
-            class_probs = tf.nn.softmax(class_logits + scaled_noise)
+            #outp_square_mean = np.mean(outputs ** 2, axis=0)
+            #outp_mean_square = np.mean(outputs, axis=0) ** 2
+            #var_mean = np.mean(np.exp(log_vars), axis=0)
+
+            # outp shape (mc_samples, batch, row, col, class)
+            # var shape (mc_samples, batch, row, col)
+
+            inner_prods = np.einsum("mbrol,mbrol->mbro", outputs, outputs)
+            mean_inner_prods = np.mean(inner_prods, axis=0)
+            mean_outp = np.mean(outputs, axis=0)
+            inner_prod_means = np.einsum("brol,brol->bro", mean_outp, mean_outp)
+            mean_vars = np.squeeze(np.mean(variances, axis=0))
+           
+            variance = mean_vars + mean_inner_prods - inner_prod_means
+
+            print(np.amin(variance))
+
+            std = np.sqrt(variance)
+
+            mean_outp = np.mean(outputs, axis=0)
+            class_probs = tf.nn.softmax(mean_outp)
+            
 
         return class_probs, std
 
