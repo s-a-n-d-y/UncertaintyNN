@@ -7,6 +7,9 @@ import tensorflow as tf
 
 from tensorflow.keras.datasets import mnist
 
+import matplotlib
+#matplotlib.use("TKAgg")
+
 import matplotlib.pyplot as plt
 from skimage.transform import rescale, resize
 from scipy import misc
@@ -53,11 +56,19 @@ actual_classes = np.array(
         ]
     )   
 
+
 def extract_img_number(file_list):
     arr = []
     for name in file_list:
         arr.append(int(name[7:12]))
     return np.array(arr)
+
+
+def extract_file_id(file_list):
+    arr = []
+    for name in file_list:
+        arr.append("_".join(name[:-4].split("_")[:2]))
+    return arr
 
 
 def class_to_rgb(data):
@@ -80,15 +91,44 @@ def class_to_rgb(data):
 
     return np.array(output)
 
-def get_data(data_type="train"):
-    frames_path = f"/home/oscar/Work/Studies/WASP/GANs/Module_3_assignment/UncertaintyNN/data/{data_type}_frames/{data_type}"
-    masks_path = f"/home/oscar/Work/Studies/WASP/GANs/Module_3_assignment/UncertaintyNN/data/{data_type}_masks/{data_type}"
+
+def rgb_to_class(data):
+
+    dict_tuple_to_class = {}
+    dict_class_to_tuple = {}
+    tuple_classes = [tuple(x) for x in actual_classes]
+    for ind, tup in enumerate(tuple_classes):
+        dict_tuple_to_class[tup]=ind
+        dict_class_to_tuple[ind]=tup
+
+    data_shape = np.shape(data)
+    output_shape = data_shape[:-1]
+    output = np.zeros(output_shape)
+    for bb in range(data_shape[0]):
+        for ii in range(data_shape[1]):
+            for jj in range(data_shape[2]):
+                pixel_rgb = tuple(data[bb,ii,jj])
+                try:
+                    output[bb,ii,jj] = dict_tuple_to_class[pixel_rgb]
+                except:
+                    output[bb,ii,jj] = -1
+
+    return np.array(output)
+
+
+def get_data(data_type="train", image_shape=(256,256), data_limit=None, shuffled=False):
+    # 3frames_path = f"/home/oscar/Work/Studies/WASP/GANs/Module_3_assignment/UncertaintyNN/data/{data_type}_frames/{data_type}"
+    # masks_path = f"/home/oscar/Work/Studies/WASP/GANs/Module_3_assignment/UncertaintyNN/data/{data_type}_masks/{data_type}"
+    frames_path = f"../data/camvid/{data_type}/images"
+    masks_path = f"../data/camvid/{data_type}/labels"
 
     tmp_frame_files = os.listdir(frames_path)
     tmp_mask_files = os.listdir(masks_path)
 
-    frame_ids = extract_img_number(tmp_frame_files)
-    mask_ids = extract_img_number(tmp_mask_files)
+    # frame_ids = extract_img_number(tmp_frame_files)
+    # mask_ids = extract_img_number(tmp_mask_files)
+    frame_ids = extract_file_id(tmp_frame_files)
+    mask_ids = extract_file_id(tmp_mask_files)
 
     frame_files = []
     mask_files = []
@@ -110,33 +150,85 @@ def get_data(data_type="train"):
 
     mask_files = np.array(mask_files)
 
-    frame_files = frame_files[np.argsort(used_frames)]
-    mask_files = mask_files[np.argsort(used_masks)]
+    frame_dict = {}
+    mask_dict = {}
+    for name in frame_files:
+        seq = name.split("_")[0]
+        try:
+            frame_dict[seq]
+        except KeyError:
+            frame_dict[seq] = []
+
+        frame_dict[seq].append(name)
+
+    for name in mask_files:
+        seq = name.split("_")[0]
+        try:
+            mask_dict[seq]
+        except KeyError:
+            mask_dict[seq] = []
+
+        mask_dict[seq].append(name)
+
+    frame_files = []
+    mask_files = []
+    for key in frame_dict:
+        frame_files.append(np.sort(frame_dict[key]))
+        mask_files.append(np.sort(mask_dict[key]))
+
+    frame_files = np.concatenate(frame_files, axis=0)
+    mask_files = np.concatenate(mask_files, axis=0)
+
+    # frame_files = frame_files[np.argsort(used_frames)]
+    # mask_files = mask_files[np.argsort(used_masks)]
+
+    if shuffled:
+        shuffled_inds = np.arange(len(frame_files))
+        np.random.shuffle(shuffled_inds)
+        frame_files = np.squeeze(frame_files[shuffled_inds])
+        mask_files = np.squeeze(mask_files[shuffled_inds])
 
     frames = []
-    for frame in frame_files:
+    for ind, frame in enumerate(frame_files):
         image_path = os.path.join(frames_path, frame)
-        data = np.array(Image.open(image_path))
+        image_data = Image.open(image_path)
+        reshaped_image = image_data.resize(image_shape, Image.NEAREST)
+        data = np.array(reshaped_image)
         frames.append(data)
+        if isinstance(data_limit, int) and ind >= data_limit:
+            break
 
     frames = np.array(frames)
 
     masks = []
-    for mask in mask_files:
+    for ind, mask in enumerate(mask_files):
         image_path = os.path.join(masks_path, mask)
-        data = np.array(Image.open(image_path))
+        image_data = Image.open(image_path)
+        reshaped_image = image_data.resize(image_shape, Image.NEAREST)
+        data = np.array(reshaped_image)
         masks.append(data)
+        if isinstance(data_limit, int) and ind >= data_limit:
+            break
 
     masks = np.array(masks) 
 
-    diffed_masks = []
+    masks = rgb_to_class(masks)
 
-    for class_rgb in actual_classes:
-        diffed_masks.append(np.linalg.norm(masks - class_rgb, axis=-1))
+    # print(np.shape(masks))
 
-    diffed_masks = np.array(diffed_masks)
+    # print(np.unique(masks))
 
-    masks = np.argmin(diffed_masks, axis=0)
+    # plt.imshow(masks[0])
+    # plt.show()
+
+    # diffed_masks = []
+
+    # for class_rgb in actual_classes:
+    #     diffed_masks.append(np.linalg.norm(masks - class_rgb, axis=-1))
+
+    # diffed_masks = np.array(diffed_masks)
+
+    # masks = np.argmin(diffed_masks, axis=0)
 
     return frames, masks
 
@@ -175,22 +267,41 @@ Void 0 0 0
 Wall 64 192 0
 """
 if __name__=="__main__":
-    train_frames, train_masks = get_data()
-    val_frames, val_masks = get_data("val")
+    print("Loading data...", end=" ")
+    train_frames, train_masks = get_data("train", shuffled=True)
+    val_frames, val_masks = get_data("val", shuffled=True)
+    test_frames, test_masks = get_data("test", shuffled=True)
+    print("Done!")
 
-    train_x = train_frames / 255
-    train_y = train_masks
+    # shuffled_train_ids = np.random.shuffle(np.arange(len(train_frames)))
+    # train_frames = np.squeeze(train_frames[shuffled_train_ids])
+    # train_masks = np.squeeze(train_masks[shuffled_train_ids])
 
-    val_split = 0.3
+    # shuffled_val_ids = np.random.shuffle(np.arange(len(val_frames)))
+    # val_frames = np.squeeze(val_frames[shuffled_val_ids])
+    # val_masks = np.squeeze(val_masks[shuffled_val_ids])
 
-    val_x = train_x[:int(np.ceil(val_split*len(train_x)))]
-    val_y = train_y[:int(np.ceil(val_split*len(train_y)))]
+    # shuffled_test_ids = np.random.shuffle(np.arange(len(test_frames)))
+    # test_frames = np.squeeze(test_frames[shuffled_test_ids])
+    # test_masks = np.squeeze(test_masks[shuffled_test_ids])
 
-    train_x = train_x[int(np.ceil(val_split*len(train_x))):]
-    train_y = train_y[int(np.ceil(val_split*len(train_y))):]
+    limited_data = 80
 
-    test_x = val_frames / 255 
-    test_y = val_masks
+    fraction = 1/3.5
+
+    train_x = train_frames[:int(len(train_frames)*fraction)] / 255
+    train_y = train_masks[:int(len(train_masks)*fraction)]
+
+    # val_split = 0.3
+
+    val_x = val_frames[:int(len(val_frames)*fraction)] / 255  # train_x[:int(np.ceil(val_split*len(train_x)))]
+    val_y = val_masks[:int(len(val_masks)*fraction)]  # train_y[:int(np.ceil(val_split*len(train_y)))]
+
+    # train_x = train_x[int(np.ceil(val_split*len(train_x))):]
+    # train_y = train_y[int(np.ceil(val_split*len(train_y))):]
+
+    test_x = test_frames[:int(len(test_frames)*fraction)] / 255
+    test_y = test_masks[:int(len(test_masks)*fraction)]
 
     train_y = tf.keras.utils.to_categorical(train_y, num_classes=32)
     val_y = tf.keras.utils.to_categorical(val_y, num_classes=32)
@@ -253,13 +364,19 @@ if __name__=="__main__":
 
     # spoof = np.random.random((10,64,64,3))
     # spoof_labels = np.random.random((10,64,64,32))
+
+    print("Setting up model...")
     batch_shape = np.shape(train_x)[1:]
     output_classes = np.shape(train_y)[-1]
     model = Unet(num_blocks=5, batch_shape=batch_shape, output_classes=output_classes, num_var_outputs=1)
     model.build(input_shape=(None,) + batch_shape)
     model.summary()
     loss_fcn = CombinedLoss(output_classes=output_classes)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    learning_rate = 0.001
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+    iou = tf.keras.metrics.MeanIoU(num_classes=output_classes)
+
     # class_probs, log_var = model(spoof)
     # # print(loss_fcn(spoof_labels, class_probs))
     # # print(np.shape(class_probs))
@@ -275,7 +392,7 @@ if __name__=="__main__":
 
         return loss, class_probs, log_var
 
-    epochs = 20
+    epochs = 100
     epoch_log_variances = []
     nans = False
     best_val_acc = 0
@@ -290,9 +407,12 @@ if __name__=="__main__":
                 break
             train_probs = np.mean(train_probs, axis=0)
             train_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(lab_batch, train_probs))
+
             step_log_variances.append(log_var)
             print(f"Step {step}: \t Loss = {loss} \t Acc = {train_acc}")
-            
+
+
+
             # diff_along_sample = np.diff(train_probs, axis=0)
             # print("Max difference between sample predictions", np.max(np.abs(diff_along_sample)))
 
@@ -308,12 +428,21 @@ if __name__=="__main__":
         labs = []
         for step, (img_batch, lab_batch) in enumerate(val_dataset):
             val_probs, _ = model(img_batch)
+
+            #preds = tf.argmax(val_probs, axis=-1)
+            #iou.update_state(np.argmax(lab_batch, axis=-1), preds)
+
             probs.append(val_probs)
             labs.append(lab_batch)
+
         val_masks = tf.concat(labs, axis=0)
         val_probs = tf.concat(probs, axis=0)
         val_acc = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(val_masks, val_probs))
+
+        #val_iou = iou.result()
+        #iou.reset_state()
             
+        #print(f"Validation acc: {val_acc}\t, Validation IoU: {val_iou}")
         print(f"Validation acc: {val_acc}")
         if val_acc > best_val_acc:
             print("Best val acc thus far, saving checkpoint.")
@@ -321,7 +450,12 @@ if __name__=="__main__":
             model.save_weights('./checkpoints/unet_with_uncertainty')
             best_val_acc = val_acc
 
+        # if (epoch + 1) % 10:
+        #     learning_rate = learning_rate * 0.90
+        #     optimizer.learning_rate = learning_rate
+
         if nans:
+            print("Breaking due to NaNs.")
             break
 
 
